@@ -2,209 +2,308 @@ const BinaryNode = require('binary-node');
 
 module.exports = class BinaryTree {
   constructor(options) {
-    if (options instanceof this.NodeClass) {
-      this.root = options;
-    } else {
-      this.root = this.nodeFactory(options);
+
+    const isIterable = (obj) => {
+      // checks for null and undefined
+      if (obj == null) {
+        return false;
+      }
+      return typeof obj[Symbol.iterator] === 'function';
     }
-    this._row = 0;
-    this._yad = 0;
-    for (let node in this) {
-      if (this._yad * 2 === this._row) {
-        this._row++;
-        this._yad = 0;
-      } else {
-        this._yad++;
+
+    this._asArray = [];
+
+    if (options instanceof this._NodeClass) {
+      this._root = options;
+
+      for (let thisNode in this) {
+        this._asArray.push(thisNode);
+      }
+
+    } else if (isIterable(options)) {
+      this._root = this._nodeFactory();
+
+      for (let value in options) {
+        this.insert(value);
+      } 
+
+    } else {
+      this._root = this._nodeFactory(options);
+      if (!this._isNullTerminator(this._root)) {
+        this._asArray.push(this._root);
       }
     }
 
-    this._allowsDuplicates = this.root.allowsDuplicates;
-    this._comparator = this.root.compare;
+    this._allowsDuplicates = this._root.allowsDuplicates;
   }
 
-  get allowsDuplicates() {
-    return this._allowsDuplicates;
-  }
-
-  set allowsDuplicates(value) {
-    throw new Error('This property can only be set when this class is instantiated');
-  }
-
-  get comparator() {
-    return this._comparator;
-  }
-
-  set comparator(value) {
-    throw new Error('This property can only be set when this class is instantiated');
-  }
-
-  get NodeClass() { // Read-only
+  _NodeClass() {
     return BinaryNode;
   }
 
-  nodeFactory(options) {
-    options = options || {};
+  _nodeFactory(options = {}) {
 
     options.allowsDuplicates = options.hasOwnProperty('allowsDuplicates') ?
-        options.allowsDuplicates : this.allowsDuplicates; 
+        options.allowsDuplicates : this._allowsDuplicates; 
 
-    options.comparator = options.comparator || this.comparator; 
-
-    return new this.NodeClass(options);
+    return new this._NodeClass(options);
   }
 
-  isLeaf(node) {
+  _isNullTerminator(node) {
     return node.left === null && node.right === null && node.value === undefined;
   }
 
-  isRoot(node) {
+  _isRoot(node) {
     return node.parent === null;
   }
 
-  insert(value) {
-    const newNode = this.nodeFactory({ value: value });
-
-    if (this._yad * 2 === this._row) {
-      let newNodeParent = this.root;
-      while (!this.isLeaf(newNodeParent.left)) {
-        newNodeParent = newNodeParent.left;
-      }
-      newNodeParent.left.isolate();
-      newNodeParent.left = newNode;
-      this._row++;
-      this._yad = 0;
-
-    } else {
-      if (this._yad % 2 === 0) {
-        this._lastNode.parent.right,isolate();
-        this._lastNode.parent.right = newNode;
-      } else {
-
-      }
-      this._yad++;
-    }
-  }
-
-  remove(targetNode) {
-    let left;
-    let right;
-    let parent;
-    let wasLeftChild;
-
-    const patchUp = (replacement) => {
-      replacement.left = left;
-      replacement.right = right;
-      if (parent) {
-        if (wasLeftChild) {
-          parent.left = replacement;
-        } else {
-          parent.right = replacement;
-        }
-      }
+  _getParentFromChild(index) {
+    const result = {
+      parent: {
+        index: (index - 1) / 2,
+        node: undefined,
+        isInArray: undefined,
+      },
+      child: {
+        index: index,
+        node: undefined,
+        isInArray: undefined,
+      },
+      isLeftChild: undefined,
     };
 
-    for (let node in this) {
-      if (node === targetNode) {
-        left = node.left;
-        right = node.right;
-        parent = node.parent;
-        wasLeftChild = node.isLeftChild();
-        node.isolate();
-        if (left) {
-          patchUp(new BinaryTree(left).maxNode);
-        } else if (right) {
-          patchUp(new BinaryTree(left).minNode);
+    if (Number.isInteger(result.parent.index) {
+      result.isLeftChild = true;
+    } else {
+      result.isLeftChild = false;
+      result.parent.index = Math.floor(result.parent.index);
+    }
+
+    result.parent.isInArray =
+        result.parent.index >= 0 && result.parent.index < this._asArray.length;
+
+    if (result.parent.isInArray) {
+      result.parent.node = this._asArray[result.parent.index];
+    } else {
+      result.parent.node = null; 
+    }
+
+    result.child.isInArray = index >= 0 && index < this._asArray.length;
+
+    if (result.child.isInArray) {
+      result.child.node = this._asArray[index];
+    } else {
+      result.child.node = null; 
+      result.isLeftChild = null;
+    }
+
+    return result;
+  }
+
+  _getChildrenFromParent(index) {
+    const result = {
+      parent: {
+        index: index,
+        node: undefined,
+        isInArray: undefined,
+      },
+      leftChild: {
+        index: 2 * index + 1,
+        node: undefined,
+        isInArray: undefined,
+      },
+      rightChild: {
+        index: 2 * index + 2,
+        node: undefined,
+        isInArray: undefined,
+      },
+    };
+
+    result.parent.isInArray = index >= 0 && index < this._asArray.length;
+
+    if (result.parent.isInArray) {
+      result.parent.node = this._asArray[index];
+    } else {
+      result.parent.node = null; 
+    }
+
+    for (let child in ['leftChild','rightChild']) {
+      result[child].isInArray =
+          result[child].index >= 0
+       && result[child].index < this._asArray.length;
+
+      if (result[child].isInArray) {
+        result[child].node = this._asArray[result[child].index];
+      } else {
+        result[child].node = null; 
+      }
+
+    return result;
+  }
+
+  insert(value) {
+    const newNode = this._nodeFactory({ value: value });
+
+    this._asArray.push(newNode);
+
+    const relationship = this._getParentFromChild(this._asArray.length - 1);
+    if (relationship.isLeftChild) {
+      this._asArray[relationship.parentIndex].left = newNode;
+    } else {
+      this._asArray[relationship.parentIndex].right = newNode;
+    }
+  }
+
+  remove(value,areEqual,mode) {
+    const onMatch = (thisNode) => {
+      const lastNode = this._asArray[this._asArray.length - 1];
+      if (lastNode === thisNode) {
+        thisNode.isolate();
+
+      } else {
+        lastNode.isolate();
+
+        if (thisNode.isLeftChild()) {
+          thisNode.parent.left = lastNode;
+        } else if (thisNode.isRightChild()) {
+          thisNode.parent.right = lastNode;
+        }
+        thisNode.parent = null;
+        
+        let left = thisNode.left;
+        let right = thisNode.right;
+        thisNode.isolate();
+
+        lastNode.left = left;
+        lastNode.right = right;
+
+      }
+      result.push(thisNode);
+    };
+    return this.search(value,areEqual,mode,onMatch);
+  }
+
+  search(value,areEqual,mode = 'last',onMatch) {
+    areEqual = areEqual || (lhs,rhs) => { return lhs == rhs; };
+    onMatch = onMatch || node => result.push(node);
+
+    let index;
+    let stopOnFirstOccurance;
+    let step;
+    let keepGoing;
+    switch (mode) {
+      case 'last':
+        index = this._asArray.length - 1;
+        keepGoing = () => { return index >= 0 };
+        step = () => { index--; };
+        stopOnFirstOccurance = true;
+        break;
+      case 'first':
+        index = 0;
+        keepGoing = () => { return index < this._asArray.length };
+        step = () => { index++; };
+        stopOnFirstOccurance = true;
+        break;
+      case 'all':
+        index = this._asArray.length - 1;
+        keepGoing = () => { return index >= 0 };
+        step = () => { index--; };
+        stopOnFirstOccurance = false;
+        break;
+      default:
+        throw new Error('Encountered invalid mode');
+        break;
+    }
+
+    const result = [];
+    if (this._asArray.length > 0) {
+
+      while(keepGoing() && this._asArray.length > 0) {
+        const thisNode = this._asArray[index];
+
+        if (areEqual(thisNode.value,value)) {
+          onMatch(thisNode);
+        }
+
+        step();
+      }
+    }
+
+    if (stopOnFirstOccurance) {
+      return result[0];
+    } else {
+      return result;
+    }
+  }
+
+  _isValid(strict = true,disallowNullTerminators = true) {
+
+    let result = true;
+    let message;
+    
+    let thisNode;
+    for (let i = this._asArray.length - 1; i >= 0; i--) {
+      thisNode = this._asArray[i];
+
+      if (i !== 0) {
+        const relationship = this._getParentFromChild(i);
+
+        if (!relationship.parent.isInArray) {
+          result = false;
+          message = 'Encountered child whose parent is not in tree';
+          break;
+        }
+
+        if (result.isLeftChild) {
+          if (parent.left !== thisNode) {
+            result = false;
+            message = 'Left child is not registered as left child on parent.';
+            break;
+          }
+        } else {
+          if (parent.right !== thisNode) {
+            result = false;
+            message = 'Right child is not registered as right child on parent.';
+            break;
+          }
         }
       }
-    }
-  }
 
-  get maxNode() {
-    return this._maxNode;
-  }
+      if (disallowNullTerminators) {
+        if (this._isNullTerminator(thisNode)) {
+          result = false;
+          message = 'Encountered null terminator in tree';
+          break;
+        }
+      }
 
-  get minNode() {
-    let currentNode = this.root;
-    while (!currentNode.isLeaf()) {
-      currentNode = currentNode.left;
-    }
-    return currentNode.parent;
-  }
-
-  get maxValue() {
-    let result = this.maxNode;
-    if (result) {
-      result = result.value;
-    }
-    return result;
-  }
-
-  get minValue() {
-    let result = this.minNode;
-    if (result) {
-      result = result.value;
-    }
-    return result;
-  }
-
-  search(key) {
-    let currentNode = this.root;
-    while (!currentNode.isLeaf()) {
-      let comparison = currentNode.compare(key);
-      if (comparison < 0) {
-        currentNode = currentNode.left; 
-      } else if (comparison == 0) {
-        return currentNode;
-      } else if (comparison > 0) {
-        currentNode = currentNode.right;
+      if (i === 0 && !this._isRoot(thisNode)) {
+        result = false;
+        message = 'First node is not root';
+        break;
       }
     }
-    return currentNode;
-  }
 
-  isValid() {
-    let previousKey = undefined;
-    for (let thisNode of this) {
-      if (previousKey !== undefined && thisNode.key <= previousKey) {
-        return false;
-      }
-      previousKey = thisNode.key;
+    if (strict) {
+      throw new Error(message);
     }
-    return true;
+
+    return result;
   }
 
   [Symbol.iterator]() {
 
-    let thisNode = this.minNode; 
-    let maxNode = this.maxNode;
-    let visited = new Set();
+    let i = 0;
 
     return {
       next: () => {
-        let result = {
-          value: {
-            key: thisNode.key,
-            value: thisNode.value,
-          },
-          done: thisNode === maxNode,
-        };
-        visited.add(thisNode.key);
+        let result = {};
 
-        let nextNode;
-        if (!thisNode.left.isLeaf() && !visited.has(thisNode.left.key)) {
-          nextNode = new BinaryTree(thisNode.left).minNode;
-        } else if (!thisNode.right.isLeaf() && !visited.has(thisNode.right.key)) {
-          nextNode = new BinaryTree(thisNode.right).minNode;
-        } else if (thisNode.parent && !thisNode.parent.isLeaf()) {
-          if (!visited.has(thisNode.parent.key)) {
-            nextNode = thisNode.parent;
-          } else if (thisNode !== maxNode) {
-            nextNode = thisNode.parent.parent;
-          } else {
-            nextNode = thisNode;
-          }
+        if (i < this._asArray.length) {
+          result.value = this._asArray[i];
+          i++;
         }
-        thisNode = nextNode;
+        result.done = ( i >= this._asArray.length );
 
         return result; 
       },
